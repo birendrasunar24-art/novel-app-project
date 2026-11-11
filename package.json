@@ -1,0 +1,15 @@
+{
+  "name": "novelplatform-workspace",
+  "version": "1.0.0",
+  "private": true,
+  "description": "NovelPlatform Monorepo - AI Webnovel Narrative Architect Studio & Mobile Reader",
+  "scripts": {
+    "dev": "npm --prefix apps/admin run dev",
+    "build": "npm --prefix apps/admin run build",
+    "start": "npm --prefix apps/admin run start",
+    "lint": "npm --prefix apps/admin run lint"
+  },
+  "workspaces": [
+    "apps/*"
+  ]
+}
