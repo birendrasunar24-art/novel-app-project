@@ -447,16 +447,12 @@ export default function AdminDashboard() {
         setNovels(prev => [cloudNovel, ...prev]);
         setSelectedNovelId(cloudNovel.id);
 
-        // 2. Populate 20 Structured Chapters in Supabase
+        // 2. Populate 20 Structured Chapters in Supabase (Instant Atomic Batch)
         const arcItems = generatedBible.twentyChapterArc || [];
-        const populatedChapters: ChapterItem[] = [];
-
-        for (let i = 0; i < arcItems.length; i++) {
-          const arc = arcItems[i];
+        const populatedChapters: ChapterItem[] = arcItems.map((arc: any) => {
           const isCh1 = arc.chapterNumber === 1;
           const isPremium = arc.chapterNumber >= 4;
-
-          const chItem: ChapterItem = {
+          return {
             id: arc.chapterNumber,
             novelId: cloudNovel.id,
             title: arc.title,
@@ -471,25 +467,25 @@ export default function AdminDashboard() {
             beatSummary: arc.beatSummary,
             plannedCliffhanger: arc.plannedCliffhanger,
           };
+        });
 
-          populatedChapters.push(chItem);
-
-          // Save to Supabase
-          await fetch("/api/chapters", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              novelId: cloudNovel.id,
-              chapterNumber: chItem.id,
-              title: chItem.title,
-              content: chItem.content,
-              wordCount: chItem.words,
-              isPremium: chItem.isPremium,
-              coinPrice: chItem.coins,
-              status: chItem.status.toLowerCase(),
-            }),
-          });
-        }
+        // Save all chapters in a single atomic request to Supabase
+        await fetch("/api/chapters", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            chapters: populatedChapters.map(ch => ({
+              novelId: ch.novelId,
+              chapterNumber: ch.id,
+              title: ch.title,
+              content: ch.content,
+              wordCount: ch.words,
+              isPremium: ch.isPremium,
+              coinPrice: ch.coins,
+              status: ch.status.toLowerCase(),
+            }))
+          }),
+        });
 
         setChapters(populatedChapters);
 

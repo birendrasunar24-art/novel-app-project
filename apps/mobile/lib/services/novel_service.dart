@@ -45,7 +45,7 @@ class NovelService extends ChangeNotifier {
     try {
       final response = await _supabase
           .from('novels')
-          .select('*')
+          .select('*, novel_genres(genres(name))')
           .order('created_at', ascending: false);
 
       final List<dynamic> data = response as List<dynamic>;

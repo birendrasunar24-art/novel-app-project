@@ -33,7 +33,10 @@ class Novel {
           ? json['cover_image_url'].toString()
           : 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800&auto=format&fit=crop&q=80',
       authorName: json['author_name'] ?? 'AI Storyteller',
-      genre: json['genre'] ?? 'Fantasy',
+      genre: json['genre'] ?? 
+          ((json['novel_genres'] is List && (json['novel_genres'] as List).isNotEmpty)
+              ? json['novel_genres'][0]['genres']?['name']
+              : null) ?? 'Fantasy',
       totalViews: json['total_views'] ?? 1420,
       rating: (json['rating'] is num) ? (json['rating'] as num).toDouble() : 4.9,
       totalChapters: json['total_chapters'] ?? 45,

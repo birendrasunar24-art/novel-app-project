@@ -19,16 +19,41 @@ export async function GET(req: NextRequest) {
 
     const { data: chapters, error } = await query;
     if (error) throw error;
-    return NextResponse.json({ success: true, chapters });
+    return NextResponse.json({ success: true, chapters: chapters || [] });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
 
-// POST: Insert or update chapter in Supabase
+// POST: Insert or update chapter(s) in Supabase (Supports single or batch array)
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
+
+    // 1. Batch mode: When chapters array is provided (e.g. 20-chapter outline)
+    if (Array.isArray(body.chapters)) {
+      const formattedChapters = body.chapters.map((ch: any) => ({
+        novel_id: ch.novelId,
+        chapter_number: ch.chapterNumber,
+        title: ch.title,
+        content: ch.content || "",
+        word_count: ch.wordCount || (ch.content ? ch.content.trim().split(/\s+/).length : 1200),
+        is_premium: Boolean(ch.isPremium),
+        coin_price: ch.coinPrice ?? (ch.isPremium ? 20 : 0),
+        status: (ch.status || "draft").toLowerCase(),
+        published_at: (ch.status || "").toLowerCase() === "published" ? new Date().toISOString() : null,
+      }));
+
+      const { data: inserted, error: batchErr } = await supabase
+        .from("chapters")
+        .upsert(formattedChapters, { onConflict: "novel_id,chapter_number" })
+        .select();
+
+      if (batchErr) throw batchErr;
+      return NextResponse.json({ success: true, chapters: inserted, count: inserted?.length });
+    }
+
+    // 2. Single chapter mode
     const { novelId, chapterNumber, title, content, wordCount, isPremium, coinPrice, status } = body;
 
     const { data: chapter, error } = await supabase
@@ -37,12 +62,12 @@ export async function POST(req: NextRequest) {
         novel_id: novelId,
         chapter_number: chapterNumber,
         title,
-        content,
-        word_count: wordCount || content.trim().split(/\s+/).length,
-        is_premium: isPremium,
+        content: content || "",
+        word_count: wordCount || (content ? content.trim().split(/\s+/).length : 1200),
+        is_premium: Boolean(isPremium),
         coin_price: coinPrice ?? (isPremium ? 20 : 0),
-        status: status.toLowerCase(),
-        published_at: status.toLowerCase() === "published" ? new Date().toISOString() : null,
+        status: (status || "draft").toLowerCase(),
+        published_at: (status || "").toLowerCase() === "published" ? new Date().toISOString() : null,
       }, { onConflict: "novel_id,chapter_number" })
       .select()
       .single();

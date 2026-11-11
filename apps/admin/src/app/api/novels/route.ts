@@ -6,26 +6,36 @@ const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PU
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-// GET: Fetch all novels from Supabase
+// GET: Fetch all novels with relational genres from Supabase
 export async function GET() {
   try {
     const { data: novels, error } = await supabase
       .from("novels")
-      .select("*")
+      .select("*, novel_genres(genres(id, name, slug))")
       .order("created_at", { ascending: false });
 
     if (error) throw error;
-    return NextResponse.json({ success: true, novels });
+
+    // Flatten genre so client gets clean novel.genre directly
+    const formattedNovels = (novels || []).map((n: any) => {
+      const gName = n.novel_genres?.[0]?.genres?.name || "Fantasy";
+      return {
+        ...n,
+        genre: gName,
+      };
+    });
+
+    return NextResponse.json({ success: true, novels: formattedNovels });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
 
-// POST: Create or upsert novel into Supabase
+// POST: Create or upsert novel and link genre into Supabase
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { title, genre, synopsis, coverImageUrl, authorName = "AI Storyteller", status = "ongoing", isPublished = true } = body;
+    const { title, genre = "Fantasy", synopsis, coverImageUrl, authorName = "AI Storyteller", status = "ongoing", isPublished = true } = body;
 
     const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || `novel-${Date.now()}`;
 
@@ -44,7 +54,27 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (error) throw error;
-    return NextResponse.json({ success: true, novel });
+
+    // Link Genre in novel_genres bridge table
+    if (genre && novel?.id) {
+      // Find matching genre in genres table
+      const { data: matchedGenre } = await supabase
+        .from("genres")
+        .select("id")
+        .ilike("name", `%${genre.trim()}%`)
+        .limit(1)
+        .maybeSingle();
+
+      const genreId = matchedGenre?.id || 1; // Default to Fantasy (id: 1) if not found
+      await supabase
+        .from("novel_genres")
+        .upsert({
+          novel_id: novel.id,
+          genre_id: genreId,
+        }, { onConflict: "novel_id,genre_id" });
+    }
+
+    return NextResponse.json({ success: true, novel: { ...novel, genre } });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
@@ -63,7 +93,10 @@ export async function DELETE(req: NextRequest) {
     // 1. Delete associated chapters
     await supabase.from("chapters").delete().eq("novel_id", id);
 
-    // 2. Delete the novel
+    // 2. Delete genre linkages
+    await supabase.from("novel_genres").delete().eq("novel_id", id);
+
+    // 3. Delete the novel
     const { error } = await supabase.from("novels").delete().eq("id", id);
     if (error) throw error;
 
