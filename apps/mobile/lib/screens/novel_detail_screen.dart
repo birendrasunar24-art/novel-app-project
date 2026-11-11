@@ -6,6 +6,7 @@ import '../models/chapter.dart';
 import '../services/wallet_service.dart';
 import '../services/bookmark_service.dart';
 import '../services/novel_service.dart';
+import '../services/ad_service.dart';
 import 'reader_screen.dart';
 
 class NovelDetailScreen extends StatefulWidget {
@@ -336,40 +337,82 @@ class _NovelDetailScreenState extends State<NovelDetailScreen> {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
                     onPressed: () {
-                      final unlocked = wallet.watchAdForChapter(ch);
-                      setState(() {});
+                      final adService = Provider.of<AdService>(context, listen: false);
                       ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                      if (unlocked) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: const Row(
-                              children: [
-                                Icon(Icons.lock_open_rounded, color: Colors.white, size: 18),
-                                SizedBox(width: 8),
-                                Expanded(child: Text('🎉 Congratulations! 2 Ads watched. Chapter is permanently unlocked!')),
-                              ],
-                            ),
-                            backgroundColor: AppConstants.emeraldGreen,
-                            behavior: SnackBarBehavior.floating,
-                            duration: const Duration(seconds: 2),
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Row(
+                            children: [
+                              SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
+                              SizedBox(width: 10),
+                              Expanded(child: Text('Loading video ad to unlock chapter...')),
+                            ],
                           ),
-                        );
-                      } else {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: const Row(
-                              children: [
-                                Icon(Icons.play_circle_fill_rounded, color: Colors.white, size: 18),
-                                SizedBox(width: 8),
-                                Expanded(child: Text('1/2 Ad Watched! Watch 1 more ad to unlock.')),
-                              ],
-                            ),
-                            backgroundColor: AppConstants.primary,
-                            behavior: SnackBarBehavior.floating,
-                            duration: const Duration(seconds: 2),
-                          ),
-                        );
-                      }
+                          backgroundColor: AppConstants.primary,
+                          duration: Duration(seconds: 1),
+                        ),
+                      );
+
+                      adService.showRewardedAd(
+                        onUserEarnedReward: (_) {
+                          final unlocked = wallet.watchAdForChapter(ch);
+                          if (mounted) setState(() {});
+                          ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                          if (unlocked) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Row(
+                                  children: [
+                                    Icon(Icons.lock_open_rounded, color: Colors.white, size: 18),
+                                    SizedBox(width: 8),
+                                    Expanded(child: Text('🎉 Congratulations! 2 Ads watched. Chapter is permanently unlocked!')),
+                                  ],
+                                ),
+                                backgroundColor: AppConstants.emeraldGreen,
+                                behavior: SnackBarBehavior.floating,
+                                duration: Duration(seconds: 2),
+                              ),
+                            );
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Row(
+                                  children: [
+                                    Icon(Icons.play_circle_fill_rounded, color: Colors.white, size: 18),
+                                    SizedBox(width: 8),
+                                    Expanded(child: Text('1/2 Ad Watched! Watch 1 more ad to unlock.')),
+                                  ],
+                                ),
+                                backgroundColor: AppConstants.primary,
+                                behavior: SnackBarBehavior.floating,
+                                duration: Duration(seconds: 2),
+                              ),
+                            );
+                          }
+                        },
+                        onAdUnavailable: () {
+                          // Fallback when ad cannot load
+                          final unlocked = wallet.watchAdForChapter(ch);
+                          if (mounted) setState(() {});
+                          ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                          if (unlocked) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Row(
+                                  children: [
+                                    Icon(Icons.lock_open_rounded, color: Colors.white, size: 18),
+                                    SizedBox(width: 8),
+                                    Expanded(child: Text('🎉 Chapter is permanently unlocked!')),
+                                  ],
+                                ),
+                                backgroundColor: AppConstants.emeraldGreen,
+                                behavior: SnackBarBehavior.floating,
+                                duration: Duration(seconds: 2),
+                              ),
+                            );
+                          }
+                        },
+                      );
                     },
                     child: Text(
                       '🎬 Watch Ad ($adProgress/2)',

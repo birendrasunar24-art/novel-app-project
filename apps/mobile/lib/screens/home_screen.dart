@@ -4,6 +4,7 @@ import '../core/constants.dart';
 import '../models/novel.dart';
 import '../services/wallet_service.dart';
 import '../services/novel_service.dart';
+import '../services/ad_service.dart';
 import 'novel_detail_screen.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -27,8 +28,8 @@ class HomeScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildNotificationItem(
-              '🔥 Realtime Supabase Connected',
-              'All novels and chapters are synced live from the Admin Dashboard.',
+              '🔥 Cloud Library Synced',
+              'All novels and chapters are up to date.',
               'Just now',
             ),
             const SizedBox(height: 12),
@@ -139,23 +140,63 @@ class HomeScreen extends StatelessWidget {
                       ),
                       onPressed: () {
                         Navigator.pop(ctx);
-                        wallet.onRewardedAdWatched();
+                        final adService = Provider.of<AdService>(context, listen: false);
                         ScaffoldMessenger.of(context).hideCurrentSnackBar();
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: const Row(
+                          const SnackBar(
+                            content: Row(
                               children: [
-                                Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
-                                SizedBox(width: 10),
-                                Expanded(child: Text('🎉 Awesome! +10 Coins added from Reward Ad!')),
+                                SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
+                                SizedBox(width: 12),
+                                Expanded(child: Text('Loading Reward Video Ad...')),
                               ],
                             ),
-                            backgroundColor: AppConstants.emeraldGreen,
-                            behavior: SnackBarBehavior.floating,
-                            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                            duration: const Duration(seconds: 2),
+                            backgroundColor: AppConstants.primary,
+                            duration: Duration(seconds: 1),
                           ),
+                        );
+
+                        adService.showRewardedAd(
+                          onUserEarnedReward: (amount) {
+                            wallet.addCoins(amount);
+                            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Row(
+                                  children: [
+                                    const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
+                                    const SizedBox(width: 10),
+                                    Expanded(child: Text('🎉 Awesome! +$amount Coins added from Reward Ad!')),
+                                  ],
+                                ),
+                                backgroundColor: AppConstants.emeraldGreen,
+                                behavior: SnackBarBehavior.floating,
+                                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                duration: const Duration(seconds: 2),
+                              ),
+                            );
+                          },
+                          onAdUnavailable: () {
+                            wallet.onRewardedAdWatched();
+                            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Row(
+                                  children: [
+                                    Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
+                                    SizedBox(width: 10),
+                                    Expanded(child: Text('🎉 +10 Coins added from Reward Ad!')),
+                                  ],
+                                ),
+                                backgroundColor: AppConstants.emeraldGreen,
+                                behavior: SnackBarBehavior.floating,
+                                margin: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(14))),
+                                duration: Duration(seconds: 2),
+                              ),
+                            );
+                          },
                         );
                       },
                       child: const Text('Watch (+10)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
@@ -296,7 +337,7 @@ class HomeScreen extends StatelessWidget {
                 children: [
                   Icon(Icons.sync_rounded, color: Colors.white, size: 18),
                   SizedBox(width: 8),
-                  Text('Library synced live with Supabase Cloud!'),
+                  Text('Library synced live!'),
                 ],
               ),
               backgroundColor: AppConstants.emeraldGreen,

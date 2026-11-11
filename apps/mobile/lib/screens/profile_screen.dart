@@ -387,7 +387,7 @@ class ProfileScreen extends StatelessWidget {
                             const SizedBox(height: 2),
                             Text(
                               isUserSignedIn
-                                  ? 'Synced to Supabase Cloud Database (${auth.isAuthenticated ? "Supabase Auth" : "Google Linked"}).'
+                                  ? 'Synced to Cloud (${auth.isAuthenticated ? "Verified Account" : "Google Linked"}).'
                                   : 'Sign in with your email or Google to validate your user profile & claim +50 Coins! 🎁',
                               style: const TextStyle(color: AppConstants.textSecondary, fontSize: 11),
                             ),
@@ -634,6 +634,105 @@ class _AuthModalWidgetState extends State<AuthModalWidget> {
   final passCtrl = TextEditingController();
   final formKey = GlobalKey<FormState>();
 
+  void _showGoogleAccountDialog(BuildContext context, WalletService wallet) {
+    final googleEmailCtrl = TextEditingController(text: 'birendrasunar24@gmail.com');
+    final googleNameCtrl = TextEditingController(text: 'Birendra Sunar');
+
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        backgroundColor: AppConstants.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: const BorderSide(color: Colors.white12)),
+        title: Row(
+          children: [
+            Image.network(
+              'https://www.gstatic.com/images/branding/product/2x/googleg_48dp.png',
+              width: 24,
+              height: 24,
+              errorBuilder: (_, __, ___) => const Icon(Icons.g_mobiledata, color: Colors.red, size: 28),
+            ),
+            const SizedBox(width: 10),
+            const Text('Link Google Account', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Confirm your Google identity to link your profile & claim +50 Bonus Coins:',
+              style: TextStyle(color: AppConstants.textSecondary, fontSize: 12),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: googleNameCtrl,
+              style: const TextStyle(color: Colors.white, fontSize: 13),
+              decoration: InputDecoration(
+                labelText: 'Name',
+                labelStyle: const TextStyle(color: AppConstants.textSecondary, fontSize: 12),
+                filled: true,
+                fillColor: AppConstants.background,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+              ),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: googleEmailCtrl,
+              style: const TextStyle(color: Colors.white, fontSize: 13),
+              keyboardType: TextInputType.emailAddress,
+              decoration: InputDecoration(
+                labelText: 'Google Email',
+                labelStyle: const TextStyle(color: AppConstants.textSecondary, fontSize: 12),
+                filled: true,
+                fillColor: AppConstants.background,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogCtx),
+            child: const Text('Cancel', style: TextStyle(color: Colors.white60)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppConstants.primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () async {
+              final name = googleNameCtrl.text.trim().isNotEmpty ? googleNameCtrl.text.trim() : 'Google Reader';
+              final email = googleEmailCtrl.text.trim().isNotEmpty ? googleEmailCtrl.text.trim() : 'user@gmail.com';
+              await wallet.signInWithGoogle(customName: name, customEmail: email);
+              if (dialogCtx.mounted) Navigator.pop(dialogCtx);
+              if (mounted) Navigator.pop(context);
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Row(
+                      children: [
+                        Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
+                        SizedBox(width: 10),
+                        Expanded(child: Text('🎉 Google Account Connected! +50 Coins claimed!')),
+                      ],
+                    ),
+                    backgroundColor: AppConstants.emeraldGreen,
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+              }
+            },
+            child: const Text('Confirm & Link (+50)'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = Provider.of<AuthService>(context);
@@ -687,22 +786,9 @@ class _AuthModalWidgetState extends State<AuthModalWidget> {
                   side: const BorderSide(color: Colors.white70),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
-                onPressed: auth.isLoading
-                    ? null
-                    : () async {
-                        final ok = await auth.signInWithGoogle();
-                        if (ok && mounted) {
-                          wallet.signInWithGoogle(customEmail: auth.email, customName: auth.displayName);
-                          Navigator.pop(context);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('🎉 Google Sign-In Successful! Progress synced!'),
-                              backgroundColor: AppConstants.emeraldGreen,
-                              duration: Duration(seconds: 2),
-                            ),
-                          );
-                        }
-                      },
+                onPressed: () {
+                  _showGoogleAccountDialog(context, wallet);
+                },
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [

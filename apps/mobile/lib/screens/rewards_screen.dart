@@ -190,38 +190,97 @@ class RewardsScreen extends StatelessWidget {
 
             const SizedBox(height: 12),
 
-            // Task 2: Daily Check-in (+5 Coins)
+            // Task 2: Daily Check-in (+5 Coins) - Strictly Once Per Calendar Day
             _buildTaskCard(
               icon: '📅',
               title: 'Daily Streak Bonus',
-              subtitle: 'Check in every day to claim bonus rewards',
-              reward: '+5 🪙',
-              btnText: 'Claim (+5)',
-              btnColor: AppConstants.primary,
-              textColor: Colors.white,
+              subtitle: wallet.isStreakClaimedToday()
+                  ? 'Claimed today ✓ Come back tomorrow!'
+                  : 'Check in every day to claim bonus rewards',
+              reward: wallet.isStreakClaimedToday() ? 'Claimed ✓' : '+5 🪙',
+              btnText: wallet.isStreakClaimedToday() ? 'Claimed' : 'Claim (+5)',
+              btnColor: wallet.isStreakClaimedToday() ? AppConstants.surfaceLight : AppConstants.primary,
+              textColor: wallet.isStreakClaimedToday() ? Colors.white38 : Colors.white,
               onTap: () {
+                if (wallet.isStreakClaimedToday()) {
+                  _showFloatingMessage(
+                    context, 
+                    'You already claimed today\'s Daily Streak bonus! Come back tomorrow.',
+                    color: AppConstants.primary,
+                    icon: Icons.event_available_rounded,
+                  );
+                  return;
+                }
                 if (!isSignedIn) {
                   _requireSignIn(context, reason: 'Sign in to claim daily streak bonuses & sync to cloud!');
                   return;
                 }
-                wallet.addCoins(5);
-                _showFloatingMessage(context, '🎉 Daily Check-in complete! +5 Coins claimed!');
+                final claimed = wallet.claimDailyStreak();
+                if (claimed) {
+                  _showFloatingMessage(context, '🎉 Daily Check-in complete! +5 Coins claimed!');
+                }
               },
             ),
 
             const SizedBox(height: 12),
 
-            // Task 3: Read 15 mins (+5 Coins)
-            _buildTaskCard(
-              icon: '📖',
-              title: 'Read for 15 Minutes',
-              subtitle: 'Enjoy any trending webnovel in the library',
-              reward: '+5 🪙',
-              btnText: 'Read Now',
-              btnColor: AppConstants.surfaceLight,
-              textColor: Colors.white,
-              onTap: () {
-                _showFloatingMessage(context, 'Explore trending novels on the Home screen to read!', color: AppConstants.primary, icon: Icons.menu_book_rounded);
+            // Task 3: Read 15 mins (+5 Coins with Screen-time Validation)
+            Builder(
+              builder: (ctx) {
+                final int readMins = (wallet.dailyReadingSeconds / 60).floor();
+                final bool isClaimed = wallet.isReadingBonusClaimedToday();
+                final bool canClaim = wallet.canClaimReadingBonus();
+
+                String sub = '$readMins/15 mins read today (${15 - readMins > 0 ? 15 - readMins : 0}m left)';
+                String bText = 'Read (${15 - readMins > 0 ? 15 - readMins : 0}m)';
+                Color bColor = AppConstants.surfaceLight;
+                Color tColor = Colors.white70;
+
+                if (isClaimed) {
+                  sub = '15/15 mins completed • Claimed today ✓';
+                  bText = 'Claimed';
+                  bColor = AppConstants.surfaceLight;
+                  tColor = Colors.white38;
+                } else if (canClaim) {
+                  sub = '🎉 15/15 mins completed! Ready to claim';
+                  bText = 'Claim (+5)';
+                  bColor = AppConstants.emeraldGreen;
+                  tColor = Colors.white;
+                }
+
+                return _buildTaskCard(
+                  icon: '📖',
+                  title: 'Read for 15 Minutes',
+                  subtitle: sub,
+                  reward: isClaimed ? 'Claimed ✓' : '+5 🪙',
+                  btnText: bText,
+                  btnColor: bColor,
+                  textColor: tColor,
+                  onTap: () {
+                    if (isClaimed) {
+                      _showFloatingMessage(
+                        context, 
+                        '15-minute reading bonus already claimed today! Read more tomorrow.',
+                        color: AppConstants.primary,
+                        icon: Icons.check_circle_outline,
+                      );
+                      return;
+                    }
+                    if (canClaim) {
+                      final success = wallet.claimReadingBonus();
+                      if (success) {
+                        _showFloatingMessage(context, '🎉 Awesome! +5 Coins claimed for 15 minutes of reading!');
+                      }
+                      return;
+                    }
+                    _showFloatingMessage(
+                      context, 
+                      'Read any novel in the app for 15 mins to unlock! Current progress: $readMins/15 mins.',
+                      color: AppConstants.primary,
+                      icon: Icons.menu_book_rounded,
+                    );
+                  },
+                );
               },
             ),
           ],

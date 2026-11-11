@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../core/constants.dart';
 import '../models/chapter.dart';
 import '../models/novel.dart';
 import '../services/settings_service.dart';
+import '../services/wallet_service.dart';
 
 enum ReaderTheme { dark, sepia, light }
 
@@ -20,6 +22,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
   double fontSize = 18.0;
   ReaderTheme currentTheme = ReaderTheme.dark;
   bool showSettings = false;
+  Timer? _readingTimer;
 
   @override
   void initState() {
@@ -33,6 +36,19 @@ class _ReaderScreenState extends State<ReaderScreen> {
     } else {
       currentTheme = ReaderTheme.dark;
     }
+
+    // Accumulate reading screen time every 5 seconds for the 15-minute reward task
+    _readingTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+      if (mounted) {
+        Provider.of<WalletService>(context, listen: false).addReadingTime(5);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _readingTimer?.cancel();
+    super.dispose();
   }
 
   Color get backgroundColor {

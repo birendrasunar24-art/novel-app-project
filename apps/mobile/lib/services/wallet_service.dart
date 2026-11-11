@@ -13,7 +13,14 @@ class WalletService extends ChangeNotifier {
   static const String _keyUserEmail = 'np_user_email';
   static const String _keyReadChaptersCount = 'np_read_chapters_count';
 
+  // Daily Streak & Reading Timer Keys
+  static const String _keyLastStreakDate = 'np_last_streak_claim_date';
+  static const String _keyDailyReadingSecs = 'np_daily_reading_seconds';
+  static const String _keyLastReadingDate = 'np_last_reading_date';
+  static const String _keyLastReadingBonusDate = 'np_last_reading_bonus_date';
+
   static const int guestStartingCoins = 50;
+  static const int readingTargetSeconds = 900; // 15 minutes
 
   int _coins = guestStartingCoins;
   final Set<String> _unlockedChapterIds = {};
@@ -25,12 +32,24 @@ class WalletService extends ChangeNotifier {
   int _chaptersReadCount = 0;
   bool _isLoaded = false;
 
+  // Streak & Reading States
+  String _lastStreakClaimDate = '';
+  int _dailyReadingSeconds = 0;
+  String _lastReadingDate = '';
+  String _lastReadingBonusClaimDate = '';
+
   int get coins => _coins;
   bool get isLoaded => _isLoaded;
   bool get isGoogleSignedIn => _isGoogleSignedIn;
   String get userName => _userName;
   String get userEmail => _userEmail;
   int get chaptersReadCount => _chaptersReadCount;
+  int get dailyReadingSeconds => _dailyReadingSeconds;
+
+  String _todayString() {
+    final now = DateTime.now();
+    return "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
+  }
 
   WalletService() {
     _loadFromStorage();
@@ -66,6 +85,20 @@ class WalletService extends ChangeNotifier {
       }
 
       _chaptersReadCount = prefs.getInt(_keyReadChaptersCount) ?? 0;
+
+      // Load Streak & Reading states
+      _lastStreakClaimDate = prefs.getString(_keyLastStreakDate) ?? '';
+      _lastReadingBonusClaimDate = prefs.getString(_keyLastReadingBonusDate) ?? '';
+      _lastReadingDate = prefs.getString(_keyLastReadingDate) ?? '';
+
+      final String today = _todayString();
+      if (_lastReadingDate == today) {
+        _dailyReadingSeconds = prefs.getInt(_keyDailyReadingSecs) ?? 0;
+      } else {
+        // New calendar day: reset daily reading timer
+        _dailyReadingSeconds = 0;
+        _lastReadingDate = today;
+      }
       
       _isLoaded = true;
       notifyListeners();
@@ -86,9 +119,62 @@ class WalletService extends ChangeNotifier {
       await prefs.setString(_keyUserName, _userName);
       await prefs.setString(_keyUserEmail, _userEmail);
       await prefs.setInt(_keyReadChaptersCount, _chaptersReadCount);
+      await prefs.setString(_keyLastStreakDate, _lastStreakClaimDate);
+      await prefs.setString(_keyLastReadingBonusDate, _lastReadingBonusClaimDate);
+      await prefs.setString(_keyLastReadingDate, _lastReadingDate);
+      await prefs.setInt(_keyDailyReadingSecs, _dailyReadingSeconds);
     } catch (e) {
       debugPrint('Error saving wallet storage: $e');
     }
+  }
+
+  // Daily Streak Validation (Strictly 1 Claim per Calendar Day)
+  bool canClaimDailyStreak() {
+    final String today = _todayString();
+    return _lastStreakClaimDate != today;
+  }
+
+  bool isStreakClaimedToday() {
+    final String today = _todayString();
+    return _lastStreakClaimDate == today;
+  }
+
+  bool claimDailyStreak() {
+    if (!canClaimDailyStreak()) return false;
+    _lastStreakClaimDate = _todayString();
+    addCoins(5);
+    _saveToStorage();
+    return true;
+  }
+
+  // Reading Timer Tracking & 15m Bonus
+  void addReadingTime(int seconds) {
+    final String today = _todayString();
+    if (_lastReadingDate != today) {
+      _dailyReadingSeconds = 0;
+      _lastReadingDate = today;
+    }
+    _dailyReadingSeconds += seconds;
+    notifyListeners();
+    _saveToStorage();
+  }
+
+  bool canClaimReadingBonus() {
+    final String today = _todayString();
+    return _dailyReadingSeconds >= readingTargetSeconds && _lastReadingBonusClaimDate != today;
+  }
+
+  bool isReadingBonusClaimedToday() {
+    final String today = _todayString();
+    return _lastReadingBonusClaimDate == today;
+  }
+
+  bool claimReadingBonus() {
+    if (!canClaimReadingBonus()) return false;
+    _lastReadingBonusClaimDate = _todayString();
+    addCoins(5);
+    _saveToStorage();
+    return true;
   }
 
   bool isChapterUnlocked(String chapterId, {bool defaultFree = false}) {
