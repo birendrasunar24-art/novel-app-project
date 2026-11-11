@@ -24,6 +24,16 @@ class Novel {
   });
 
   factory Novel.fromJson(Map<String, dynamic> json) {
+    String parsedGenre = 'Fantasy';
+    if (json['genre'] != null && json['genre'].toString().isNotEmpty) {
+      parsedGenre = json['genre'].toString();
+    } else if (json['novel_genres'] is List && (json['novel_genres'] as List).isNotEmpty) {
+      final firstGenre = (json['novel_genres'] as List).first;
+      if (firstGenre is Map && firstGenre['genres'] is Map && firstGenre['genres']['name'] != null) {
+        parsedGenre = firstGenre['genres']['name'].toString();
+      }
+    }
+
     return Novel(
       id: json['id']?.toString() ?? '',
       title: json['title'] ?? 'Untitled Novel',
@@ -33,10 +43,7 @@ class Novel {
           ? json['cover_image_url'].toString()
           : 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800&auto=format&fit=crop&q=80',
       authorName: json['author_name'] ?? 'AI Storyteller',
-      genre: json['genre'] ?? 
-          ((json['novel_genres'] is List && (json['novel_genres'] as List).isNotEmpty)
-              ? json['novel_genres'][0]['genres']?['name']
-              : null) ?? 'Fantasy',
+      genre: parsedGenre,
       totalViews: json['total_views'] ?? 1420,
       rating: (json['rating'] is num) ? (json['rating'] as num).toDouble() : 4.9,
       totalChapters: json['total_chapters'] ?? 45,
